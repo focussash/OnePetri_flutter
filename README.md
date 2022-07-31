@@ -1,16 +1,12 @@
 # onepetri
 
-Flutter implementation of OnePetri
+Flutter implementation of OnePetri app made by Michael Shamash
 
-## Getting Started
+## Under construction
 
-This project is a starting point for a Flutter application.
+Currently finished home screen and settings
 
-A few resources to get you started if this is your first Flutter project:
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+### Only tested on Android
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Since IOS version is stable and production-released anyways
