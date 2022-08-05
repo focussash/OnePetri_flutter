@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:onepetri/Settings/ml_parameters.dart';
+import 'package:onepetri/Screens/dish_selection_screen.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -13,11 +16,13 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
 
   ml_Parameters parameters = ml_Parameters();
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
     _getPref();
+    _getPermission();
   }
 
   Future<void> _getPref() async {
@@ -25,16 +30,33 @@ class _HomePageState extends State<HomePage> {
     setState(() {
     });
   }
-//End of package retrieval. Todo:wrap this with a class call
 
-
-  //Define button actions:
-  void _toAlbum(){
-    //
+  void _getPermission() async{
+    //request relevant permission if not granted before
+    //These wont work for IOS at the moment as I do not have podfile file in IOS folder, need to
+    //request permission there as well
+    Map<Permission, PermissionStatus> statuses = await [
+      Permission.camera,
+      Permission.storage,
+      Permission.photos,
+    ].request();
   }
 
-  void _toCamera(){
-    //
+  //Define button actions:
+  void _toAlbum() async{
+    final navigator = Navigator.of(context); //Because we don't want to BuildContext after the async call
+    final XFile? photo = await _picker.pickImage(source: ImageSource.gallery);
+    if (photo != null){
+      navigator.push(MaterialPageRoute(builder: (_) => DishSelection(imageFile:photo,parameters:parameters)));
+    }
+  }
+
+  void _toCamera() async{
+    final navigator = Navigator.of(context);
+    final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
+    if (photo != null){
+      navigator.push(MaterialPageRoute(builder: (_) => DishSelection(imageFile:photo,parameters:parameters)));
+    }
   }
 
   void _toAssay(){

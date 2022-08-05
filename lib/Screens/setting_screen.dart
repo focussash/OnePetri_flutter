@@ -12,7 +12,7 @@ class Settings extends StatefulWidget {
 class _SettingsState extends State<Settings> {
 
   ml_Parameters _parameters = ml_Parameters();
-  ml_Parameters _default_parameters = ml_Parameters();
+  ml_Parameters _defaultParameters = ml_Parameters();
 
   //Define text editing controllers
   final TextEditingController _petriConfController = TextEditingController(text: '');
@@ -120,7 +120,7 @@ class _SettingsState extends State<Settings> {
   //Define button actions:
   Future<void> _sendEmail() async {
     if (!await launchUrl(Uri.parse('mailto:support@onepetri.ai'))) {
-      throw 'Could not launch tips';
+      throw 'Could not connect to Email';
     }
   }
 
@@ -131,18 +131,17 @@ class _SettingsState extends State<Settings> {
   }
 
   void _resetSetting(){
-    _setPref('petriConfThreshold',_default_parameters.petriConfThreshold);
-    _setPref('petriIOUThreshold',_default_parameters.petriIOUThreshold);
-    _setPref('plaqueConfThreshold',_default_parameters.plaqueConfThreshold);
-    _setPref('plaqueIOUThreshold',_default_parameters.plaqueIOUThreshold);
+    _setPref('petriConfThreshold',_defaultParameters.petriConfThreshold);
+    _setPref('petriIOUThreshold',_defaultParameters.petriIOUThreshold);
+    _setPref('plaqueConfThreshold',_defaultParameters.plaqueConfThreshold);
+    _setPref('plaqueIOUThreshold',_defaultParameters.plaqueIOUThreshold);
     _getPref();
   }
   //End of buttons actions
 
-  //Creates a textfield for inputting parameters and saving to preferences instead of wrapping isEditing status with a class...
+  //Creates a custom textfield for inputting parameters and saving to preferences instead of wrapping isEditing status with a class...
   //There has to be a better way to code the following widgets but since dart doesn't allow values
   //to be passed by reference currently I'm using this ugly but works way around.
-
   Widget parametersInputField(setting_entry,controller) {
     if (setting_entry.isEditing) {
       return Center(
@@ -154,10 +153,11 @@ class _SettingsState extends State<Settings> {
           errorText: '',
           ),
           onSubmitted: (newValue){
+            //Check whether input is a number between 0 and 1
            if (double.tryParse(controller.value.text) == null){
             setState(() {
               _callAlert();
-              controller.text = setting_entry.value;
+              controller.text = '';
               });
            }
             else if ((double.tryParse(controller.value.text)! >= 0) && (double.tryParse(controller.value.text)! <= 1 )) {
@@ -171,7 +171,7 @@ class _SettingsState extends State<Settings> {
             else {
               setState(() {
                 _callAlert();
-                controller.text = setting_entry.value;
+                controller.text = '';
               });
             }
           },
@@ -195,8 +195,7 @@ class _SettingsState extends State<Settings> {
       ),
     );
   }
-
-  //End of textfield
+  //End of custom textfield
 
   @override
   Widget build(BuildContext context) {

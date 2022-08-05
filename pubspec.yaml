@@ -35,10 +35,13 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.2
   image_picker: ^0.8.5+3
-  tflite: ^1.1.2
   package_info_plus: ^1.4.3
   url_launcher: ^6.1.5
   shared_preferences: ^2.0.15
+  permission_handler: ^10.0.0
+  image: ^3.2.0
+  tflite_flutter: ^0.9.0
+  tflite_flutter_helper: ^0.2.1
 
 dev_dependencies:
   flutter_test:
@@ -64,6 +67,9 @@ flutter:
 
   assets:
     - assets/logo.png
+    - assets/models/label-petri.txt
+    - assets/models/Yv5-fp16.tflite
+    - assets/models/Yv5-fp16-NMS.tflite
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
