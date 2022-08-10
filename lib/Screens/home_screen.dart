@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:onepetri/Settings/ml_parameters.dart';
+import 'package:onepetri/Objects/ml_parameters.dart';
 import 'package:onepetri/Screens/dish_selection_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';

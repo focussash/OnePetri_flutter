@@ -1,8 +1,11 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
-import 'package:onepetri/Settings/ml_parameters.dart';
+import 'package:onepetri/Objects/ml_parameters.dart';
+import 'package:onepetri/Objects/detected_obj.dart';
+import 'package:onepetri/Methods/NMS.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:tflite_flutter/tflite_flutter.dart' as tfl;
 import 'package:tflite_flutter_helper/tflite_flutter_helper.dart';
@@ -11,6 +14,7 @@ import 'package:tflite_flutter_helper/tflite_flutter_helper.dart';
 class DishSelection extends StatefulWidget {
   const DishSelection({super.key, required this.imageFile,required this.parameters});
   final int pxSize = 640;//The pixel size used in model. Here the unit is PIXEL, NOT LOGICAL PIXEL
+  final double previewSize = 360;//The size (both height and width) of the preview image displayed
   final XFile imageFile;
   final ml_Parameters parameters;
 
@@ -24,7 +28,7 @@ class _DishSelectionState extends State<DishSelection> {
   //late img.Image croppedImage;
   late TensorImage tensorImage;
   final ImagePicker _picker = ImagePicker();
-  late double petriConfThreshold,plaqueConfThreshold;
+  late double petriConfThreshold,petriIOUThreshold;
   late tfl.Interpreter interpreter;
   late ImageProcessor imageProcessor;
 
@@ -32,11 +36,10 @@ class _DishSelectionState extends State<DishSelection> {
   late tfl.TfLiteType _outputType;
   late TensorBuffer _outputBuffer;
   late TensorBuffer _inputBuffer; //This is necessary because the model takes batch size as an extra dimension
-
-//For debugging TODO:Remove
   late List<int> _inputShape;
-  late TensorBuffer _testBuffer;
-  //End of debugging
+  var detected = <DetectedObj>[];//To store detected objects
+
+  List<Widget> drawStack = <Widget>[];//This is used to display the picture and draw rectangular boxes on identified petri dishes
 
   @override
   void initState() {
@@ -57,16 +60,30 @@ class _DishSelectionState extends State<DishSelection> {
     await _loadModel();
     //Read the image and center crop it to size used for models
     setState(() {
+      //Temporarily, not using the imageProcessor provided by TensorImage as that cropping method loses too much info
+      var _image = img.decodeImage(image.readAsBytesSync())!;
+      //_image = img.copyResizeCropSquare(_image,widget.pxSize);
+      _image = scaleImageCentered(_image, widget.pxSize, widget.pxSize, img.getColor(0, 0, 0));
+      image.writeAsBytesSync(img.encodePng(_image));
       tensorImage = TensorImage.fromFile(image);
-      tensorImage = imageProcessor.process(tensorImage);
-      image.writeAsBytesSync(img.encodePng(tensorImage.image));
+      //tensorImage = imageProcessor.process(tensorImage);
+      //image.writeAsBytesSync(img.encodePng(tensorImage.image));
     });
-    _detectPetri();
+    //Remove all previous detections
+    drawStack.clear();
+    detected.clear();
+    //Add the initial layer (actual image) to the stack
+    drawStack.add(SizedBox(
+      height: widget.previewSize,
+      width: widget.previewSize,
+      child: Image.file(image,fit: BoxFit.cover,),
+    ));
+    await _detectPetri();
   }
 
   _loadModel() async{
     petriConfThreshold = widget.parameters.petriConfThreshold;
-    plaqueConfThreshold = widget.parameters.plaqueConfThreshold;
+    petriIOUThreshold = widget.parameters.petriIOUThreshold;
     imageProcessor = ImageProcessorBuilder().add(ResizeWithCropOrPadOp(widget.pxSize,widget.pxSize)).build();
     interpreter = await tfl.Interpreter.fromAsset("models/Yv5-fp16.tflite");
 
@@ -84,19 +101,83 @@ class _DishSelectionState extends State<DishSelection> {
 
   _detectPetri() async{
     //detect petri dish
-    List temp = tensorImage.tensorBuffer.getDoubleList();
+    List<double> temp = tensorImage.tensorBuffer.getDoubleList();
+    //Normalize the values to 0-1
+    for(var i=0;i<temp.length;i++){
+      temp[i] = temp[i]/255;
+    }
     _inputBuffer.loadList(temp,shape:[1,640,640,3]);
     interpreter.run(_inputBuffer.getBuffer(), _outputBuffer.getBuffer());
-    print('Final Output is: ');
-    
     List temp2 = _outputBuffer.getDoubleList().reshape([25200,6]);
     for (var i =0; i<25200;i++) {
-        if (temp2[i][4]>0.2){
-          print(i);
-          print(temp2[i]);
+      //If object has higher conf than threshold,consider it a petri dish
+        if (temp2[i][4]>petriConfThreshold){
+          for (var j = 0;j<4;j++){
+            temp2[i][j] *= widget.pxSize; //To convert back the relative coordinates to pixel coordinates
+          }
+          detected.add(DetectedObj(max(0,temp2[i][0]-0.5*temp2[i][2]), max(0,temp2[i][1]-0.5*temp2[i][3]), temp2[i][0]+0.5*temp2[i][2], temp2[i][1]+0.5*temp2[i][3], temp2[i][4]));
         }
     }
+    //Debug.TODO:remove
+    //print('Pre NMS output is: ');
+    //print(detected.length);
+    detected = NMS(detected,petriIOUThreshold);
+    _getRecCords();
+    _drawRec();
+  }
 
+  //Map detected objects into preview coordinates, then draw rectangles in this stack, on top of preview
+  _getRecCords(){
+    //Calculate the coordinates to plot rectangles
+    for (var obj in detected){
+      obj.xmax *= (360/widget.pxSize);
+      obj.ymax *= (360/widget.pxSize);
+      obj.xmin *= (360/widget.pxSize);
+      obj.ymin *= (360/widget.pxSize);
+    }
+  }
+  _drawRec(){
+    for (var obj in detected){
+      drawStack.add(
+          Positioned(
+            left: obj.xmin,
+            top: obj.ymin,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () {
+                setState(() {
+                  // TODO: Bring this petri dish to further analysis
+                });
+              },
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: Colors.yellow,  // red as border color
+                    width: 3,
+                  ),
+                ),
+                width: obj.xmax-obj.xmin,
+                height: obj.ymax - obj.ymin,
+              ),
+            ),
+          )
+      );
+    }
+  }
+
+  //A cool snippet for resizing image without cropping
+  //Found it here: https://gist.github.com/slightfoot/1039d28a2161af4ef6f733bfe4d4e10e
+  img.Image scaleImageCentered(img.Image source, int maxWidth, int maxHeight, int colorBackground) {
+    final double scaleX = maxWidth/ source.width ;
+    final double scaleY = maxHeight/ source.height ;
+    final double scale = (scaleX * source.height > maxHeight) ? scaleY : scaleX;
+    final int width = (source.width * scale).round();
+    final int height = (source.height * scale).round();
+    return img.drawImage(
+        new img.Image(maxWidth, maxHeight)..fill(colorBackground),
+        img.copyResize(source,width:width,height: height),
+        dstX: ((maxWidth - width) / 2).round(),
+        dstY: ((maxHeight - height) / 2).round());
   }
 
   void _toAlbum() async{
@@ -175,15 +256,16 @@ class _DishSelectionState extends State<DishSelection> {
           children: [
             const SizedBox(height: 100),
             SizedBox(
-              //This is just for display
-              height: 360,
-              width: 360,
-              child: Image.file(image,fit: BoxFit.cover,),
+              height: widget.previewSize,
+              width: widget.previewSize,
+              child: Stack(
+                children:drawStack,
+              ),
             ),
             const SizedBox(height: 80),
-            const Text('1 petri dish detected. Tap the petri dish of interest to proceed with analysis.',
+            Text('${detected.length} petri dish detected. Tap the petri dish of interest to proceed with analysis.',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                   fontSize: 18
               ),
             ),
