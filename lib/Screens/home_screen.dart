@@ -59,8 +59,51 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _toAssay(){
-    //
+  //toAssay is currently a placeholder. TODO: actually implement this function
+  Future<void> _toAssay() async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // user must tap button!
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Coming soon!',
+            textAlign: TextAlign.center,
+          ),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: const <Widget>[
+                SizedBox(height:10),
+                Text('This function is under construction.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 20
+                  ),
+                ),
+                SizedBox(height: 20),
+                Text('For now please use quick counts.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 20
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('ok',
+                style: TextStyle(
+                    fontSize: 20
+                ),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _toTips() async {

@@ -31,10 +31,5 @@ import 'dart:math';
    double iouArea = iouWidth * iouHeight;
    double unionArea = areaA + areaB - iouArea;
 
-   //Debug. TODO:Remove
-   //print('IOU area is:');
-   //print(iouArea);
-   //print('Union area is:');
-   //print(unionArea);
    return iouArea/unionArea;
  }
