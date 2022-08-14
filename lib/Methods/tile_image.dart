@@ -49,7 +49,7 @@ tileImage(img.Image source, int tilePxSize){
 //2. Re-scale the tile size, such that this many main tiles cover ALL raw image space (meaning the final tiles will be smaller
 //then originally defined full-size. Then, increase the tile size along each axis by X%
 //3. Lay the tiles such that each subsequent tile is X% overlaid with the previous tile
-tileImage2(img.Image source, int tilePxSize, {int overlayPercent = 25}){
+List<Tile> tileImage2(img.Image source, int tilePxSize, {int overlayPercent = 25}){
   //This takes source image and tile it into smaller square images (wrapped with tile object) each of tilePxSize X tilePxSize
   //The coordinates of each tile, in pixels, will be absolute units (normalized to the size of source image).
   var tileList = <Tile>[]; //Stores output
@@ -91,7 +91,7 @@ tileImage2(img.Image source, int tilePxSize, {int overlayPercent = 25}){
       Tile tile = Tile(totalWidth,totalHeight,totalWidth+tileWidth,totalHeight+tileHeight,tempImg);
       cropTile(source,tile,tilePxSize);
       //Debug. TODO: remove
-      print('This tile has: xmin = ${tile.xmin}, ymin = ${tile.ymin}, xmax = ${tile.xmax}, ymax = ${tile.ymax}');
+      //print('This tile has: xmin = ${tile.xmin}, ymin = ${tile.ymin}, xmax = ${tile.xmax}, ymax = ${tile.ymax}');
       //End of debug
       tileList.add(tile);
       //Now update the starting coordinates for the next tile, ensuring there is set overlap

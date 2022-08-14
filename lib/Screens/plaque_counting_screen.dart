@@ -37,9 +37,11 @@ class _PlaqueCountingState extends State<PlaqueCounting> {
   late TensorBuffer _outputBuffer;
   late TensorBuffer _inputBuffer; //This is necessary because the model takes batch size as an extra dimension
   late List<int> _inputShape;
+  late img.Image image;
   late TensorImage tensorImage;
 
-  var detected = <DetectedObj>[];//To store detected objects
+  var tileDetected = <DetectedObj>[];//To store detected objects in one tile
+  var dishDetected = <DetectedObj>[];//To store detected objects for the whole petri dish
   var tileList = <Tile>[];//To store tiled images
 
   @override
@@ -76,19 +78,6 @@ class _PlaqueCountingState extends State<PlaqueCounting> {
         child: Image.file(widget.imageFile,fit: BoxFit.cover,),
       ));
     });
-  }
-
-  convertTileCoords(Tile tile, DetectedObj obj){
-    //This converts the coordinates of a detected object from relative coordinates into absolute pixels (of the petri dish image)
-    //Note that normally objects detected use relative coordinates (and the conversion happens outside of function calls)
-    //But after this function the coordinate attributes of the object will be absolute coordinates
-    int tileWidth = tile.xmax - tile.xmin;
-    int tileHeight = tile.ymax - tile.ymin;
-    obj.xmin = tile.xmin + obj.xmin * tileWidth;
-    obj.ymin = tile.ymin + obj.ymin * tileHeight;
-    obj.xmax = tile.xmin + obj.xmax * tileWidth;
-    obj.ymax = tile.ymin + obj.ymax * tileHeight;
-    return obj;
   }
 
   Future<void> _alertDishSize() async{
@@ -177,9 +166,20 @@ class _PlaqueCountingState extends State<PlaqueCounting> {
     }
   }
 
-  _classify() {
-    //TODO: Actually implement classification code
-    var image = img.decodeImage(widget.imageFile.readAsBytesSync())!;
+  convertTileCoords(Tile tile, DetectedObj obj){
+    //This converts the coordinates of a detected object from relative coordinates into absolute pixels (of the petri dish image)
+    //Note that normally objects detected use relative coordinates (and the conversion happens outside of function calls)
+    //But after this function the coordinate attributes of the object will be absolute coordinates
+    int tileWidth = tile.xmax - tile.xmin;
+    int tileHeight = tile.ymax - tile.ymin;
+    obj.xmin = tile.xmin + obj.xmin * tileWidth;
+    obj.ymin = tile.ymin + obj.ymin * tileHeight;
+    obj.xmax = tile.xmin + obj.xmax * tileWidth;
+    obj.ymax = tile.ymin + obj.ymax * tileHeight;
+    return obj;
+  }
+  _checkSize() {
+    image = img.decodeImage(widget.imageFile.readAsBytesSync())!;
     //Debugging. TODO: remove//
     print('Dish width is: ${image.width},Dish height is: ${image.height}');
     //End of debug
@@ -187,10 +187,77 @@ class _PlaqueCountingState extends State<PlaqueCounting> {
       _alertDishSize();
     }
     else {
-      tensorImage.loadImage(image);
-      tileImage2(image,widget.pxSize);
+      _classify();
     }
   }
+  _classify (){
+    //TODO: Actually implement classification code
+    tileList = tileImage2(image,widget.pxSize);
+    for (var tile in tileList){
+      //Classify each tile. Empty detected list for each tile
+      tileDetected = [];
+      //The rest of classification is same method as done for petri dish
+      tensorImage.loadImage(tile.image);
+      List<double> temp = tensorImage.tensorBuffer.getDoubleList();
+      //Normalize the values to 0-1
+      for(var i=0;i<temp.length;i++){
+        temp[i] = temp[i]/255;
+      }
+      _inputBuffer.loadList(temp,shape:[1,640,640,3]);
+      interpreter.run(_inputBuffer.getBuffer(), _outputBuffer.getBuffer());
+      List temp2 = _outputBuffer.getDoubleList().reshape([25200,6]);
+      for (var i =0; i<25200;i++) {
+        //If object has higher conf than threshold,consider it a petri dish
+        if (temp2[i][4]>plaqueConfThreshold){
+          tileDetected.add(DetectedObj(max(0,temp2[i][0]-0.5*temp2[i][2]), max(0,temp2[i][1]-0.5*temp2[i][3]), temp2[i][0]+0.5*temp2[i][2], temp2[i][1]+0.5*temp2[i][3], temp2[i][4]));
+        }
+      }
+      tileDetected = NMS(tileDetected,plaqueIOUThreshold);
+      //Now convert these coordinates back to absolute ones for the petri dish image, and add to dishDetected
+      for (var obj in tileDetected){
+        obj = convertTileCoords(tile, obj);
+        dishDetected.add(obj);
+      }
+    }
+    //Now do a NMS on the whole image
+
+    //Debug. TODO: remove
+    print('Found a total of ${dishDetected.length} plaques before NMS');
+    //end of debug
+    dishDetected = NMS(dishDetected,plaqueIOUThreshold);
+    //Debug. TODO: remove
+    for (var obj in dishDetected){
+      print('Found plaque at: xmin = ${obj.xmin}, ymin = ${obj.ymin}, xmax = ${obj.xmax}, ymax = ${obj.ymax}, with confidence = ${obj.confidence}');
+    }
+    print('Found a total of ${dishDetected.length} plaques after NMS');
+    //End of debugging.
+    setState(() {
+      _drawPlaques();
+    });
+  }
+
+  //Draw detected plaques onto the original image
+  _drawPlaques(){
+    for (var obj in dishDetected){
+      drawStack.add(
+          Positioned(
+            left: obj.xmin*widget.previewSize/image.width,
+            top: obj.ymin*widget.previewSize/image.height,
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: Colors.yellow,  // red as border color
+                    width: 1,
+                  ),
+                ),
+                width: (obj.xmax - obj.xmin)*widget.previewSize/image.width,
+                height: (obj.ymax - obj.ymin)*widget.previewSize/image.height,
+              ),
+          ),
+      );
+    }
+  }
+
 
   @override
   Widget build(BuildContext context){
@@ -213,7 +280,7 @@ class _PlaqueCountingState extends State<PlaqueCounting> {
             ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: _classify,
+              onPressed: _checkSize,
               style: ElevatedButton.styleFrom(
                 primary: Colors.purple,
               ),

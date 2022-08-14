@@ -8,7 +8,7 @@ class ml_Parameters {
   static const String plaqueModelVersion = "1.2";
 
   //Initialize the thresholds to default
-  double petriConfThreshold= 0.8,petriIOUThreshold = 0.5,plaqueConfThreshold =0.8 ,plaqueIOUThreshold = 0.5;
+  double petriConfThreshold= 0.8,petriIOUThreshold = 0.5,plaqueConfThreshold =0.8 ,plaqueIOUThreshold = 0.2;
   //plus other settings needed
 
   PackageInfo package = PackageInfo(
