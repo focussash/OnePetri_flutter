@@ -49,7 +49,7 @@ img.Image cropPadTile(img.Image source, int xmin, int ymin, int width, int heigh
   }
   else if ((width < newDim) || (height < newDim)){
     //Too small (one of the extra tiles), need to pad it bigger without rescaling (because one of the axes should be of the right size)
-    if ((width != newDim) || (height != newDim)){ //Sanity check. In this case we should have at least one axis of the right size
+    if ((width != newDim) && (height != newDim)){ //Sanity check. In this case we should have at least one axis of the right size
       throw Exception('Tile height and width not matching');
     }
     tempImg = img.drawImage(

@@ -7,7 +7,6 @@ import 'package:image/image.dart' as img;
 import 'package:onepetri/Objects/ml_parameters.dart';
 import 'package:onepetri/Objects/detected_obj.dart';
 import 'package:onepetri/Methods/NMS.dart';
-import 'package:onepetri/Methods/image_processing.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:tflite_flutter/tflite_flutter.dart' as tfl;
 import 'package:tflite_flutter_helper/tflite_flutter_helper.dart';
@@ -28,6 +27,9 @@ class PlaqueCounting extends StatefulWidget {
 class _PlaqueCountingState extends State<PlaqueCounting> {
 
   List<Widget> drawStack = <Widget>[];//This is used to display the picture and draw rectangular boxes on identified plaques
+  bool displayButton = true;
+  String textDisplay = 'Counting plaques, please wait...';
+  double timeSpent = 0;
 
   late tfl.Interpreter interpreter;
   late double plaqueConfThreshold,plaqueIOUThreshold;
@@ -187,11 +189,14 @@ class _PlaqueCountingState extends State<PlaqueCounting> {
       _alertDishSize();
     }
     else {
+      setState(() {
+        displayButton = false;
+      });
       _classify();
     }
   }
-  _classify (){
-    //TODO: Actually implement classification code
+  Future<void> _classify() async{
+    DateTime startTime = DateTime.now();
     tileList = tileImage2(image,widget.pxSize);
     for (var tile in tileList){
       //Classify each tile. Empty detected list for each tile
@@ -233,6 +238,9 @@ class _PlaqueCountingState extends State<PlaqueCounting> {
     //End of debugging.
     setState(() {
       _drawPlaques();
+      DateTime endTime = DateTime.now();
+      timeSpent = (endTime.difference(startTime).inMilliseconds)/1000;
+      textDisplay = 'Counting done! Found ${dishDetected.length} plaques!\n\n The classification took ${timeSpent} seconds.';
     });
   }
 
@@ -258,7 +266,6 @@ class _PlaqueCountingState extends State<PlaqueCounting> {
     }
   }
 
-
   @override
   Widget build(BuildContext context){
     //TODO:Placeholder
@@ -278,15 +285,28 @@ class _PlaqueCountingState extends State<PlaqueCounting> {
                 children:drawStack,
               ),
             ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _checkSize,
-              style: ElevatedButton.styleFrom(
-                primary: Colors.purple,
+            const SizedBox(height: 70),
+            //If counting hasn't started, display the button. Else, display the text
+            !displayButton? Text(textDisplay,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  fontSize: 18)):
+            SizedBox(
+              width: 200,
+              height: 60,
+              child:ElevatedButton(
+                onPressed: _checkSize,
+                style: ElevatedButton.styleFrom(
+                  primary: Colors.purple,
+                ),
+                child: const Text('Count plaques',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 23
+                  ),),
               ),
-              child: const Text('Count plaques'),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height:60),
             Container(
               decoration: const BoxDecoration(
                 color: Colors.red,
