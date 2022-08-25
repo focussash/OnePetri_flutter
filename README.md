@@ -1,6 +1,6 @@
 # OnePetri
 
-Flutter implementation of OnePetri
+Flutter implementation of OnePetri. Currently in beta testing. For lateste release, checkout [here](https://github.com/focussash/OnePetri_flutter/releases/tag/beta)
 
 ## About
 
